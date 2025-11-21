@@ -1,93 +1,79 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>GrowSafe IoT Dashboard</title>
   <meta charset="UTF-8" />
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      background: #f4f4f4;
-      padding: 30px;
-    }
-    .card {
-      background: white;
-      padding: 20px;
-      margin: 20px auto;
-      width: 350px;
-      border-radius: 10px;
-      box-shadow: 0 0 10px #ccc;
-    }
-    input[type="range"] {
-      width: 90%;
-    }
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GrowSafe Dashboard</title>
+
+  <!-- Google Font -->
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <!-- External CSS -->
+  <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
+  <div class="flow-bg"></div>
 
-  <h1>🌱 GrowSafe IoT Dashboard</h1>
+  <header>
+    <div class="header-center">
+      <h1>GrowSafe</h1>
+      <p>Quezon City</p>
+    </div>
+  </header>
 
-  <div class="card">
-    <h2>Sensor Data</h2>
-    <p><b>Temperature:</b> <span id="temp">--</span> °C</p>
-    <p><b>Humidity:</b> <span id="hum">--</span> %</p>
+  <div class="weather-container">
+    <!-- Weather -->
+    <div class="weather-today">
+      <div class="weather-icon" id="weatherIcon"></div>
+      <div>
+        <div class="condition" id="condition">Loading...</div>
+      </div>
+    </div>
+
+    <!-- Gauges -->
+    <div class="gauges">
+      <div class="gauge" id="tempGauge">
+        <div class="gauge-inner">
+          <div class="gauge-value" id="temp">--°C</div>
+          <div class="gauge-label">Temperature</div>
+        </div>
+      </div>
+
+      <div class="gauge" id="humidityGauge">
+        <div class="gauge-inner">
+          <div class="gauge-value" id="hum">--%</div>
+          <div class="gauge-label">Humidity</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls">
+      <!-- Roof Button -->
+      <button class="control-btn" id="roofBtn">Open/Close Roof</button>
+
+      <!-- Servo Slider -->
+      <div class="slide-container" style="margin-top:20px;">
+        <label for="servoSlider" style="display:block; margin-bottom:5px; font-weight:600;">
+          Roof Angle: <span id="servoVal">90</span>°
+        </label>
+        <input type="range" id="servoSlider" min="0" max="180" value="90">
+      </div>
+
+      <!-- Light Button -->
+      <button class="control-btn" id="toggleLight" style="margin-top:20px;">Turn On/Off Light</button>
+      <p style="margin-top:5px;">Status: <span id="lightStatus">OFF</span></p>
+    </div>
   </div>
 
-  <div class="card">
-    <h2>Servo Control</h2>
-    <p><b>Angle:</b> <span id="servoVal">0</span>°</p>
-    <input type="range" id="servoSlider" min="0" max="180" value="0">
-  </div>
+  <footer>
+    © 2025 GrowSafe – Designed with care for our Plantita's out there
+  </footer>
 
-  <!-- Firebase CDN -->
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js"></script>
-
-  <script>
-    // Your Firebase Config
-    const firebaseConfig = {
-      apiKey: "AIzaSyAjhSicX7Scd4oITf-EOLue2y_bIxyvd3M",
-      authDomain: "growsafe-961d2.firebaseapp.com",
-      databaseURL: "https://growsafe-961d2-default-rtdb.asia-southeast1.firebasedatabase.app",
-      projectId: "growsafe-961d2",
-      storageBucket: "growsafe-961d2.firebasestorage.app",
-      messagingSenderId: "407294805734",
-      appId: "1:407294805734:web:4ad347bc9b9cdc84ac9d27"
-    };
-
-    // Init Firebase
-    const app = firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
-
-    // HTML bindings
-    const tempEl = document.getElementById("temp");
-    const humEl = document.getElementById("hum");
-    const servoValEl = document.getElementById("servoVal");
-    const servoSlider = document.getElementById("servoSlider");
-
-    // Listen for sensor updates
-    db.ref("sensors").on("value", snapshot => {
-      const data = snapshot.val();
-      if (data) {
-        tempEl.textContent = data.temperature;
-        humEl.textContent = data.humidity;
-      }
-    });
-
-    // Listen for servo updates (in case ESP32 sets it)
-    db.ref("controls/servo").on("value", snapshot => {
-      const angle = snapshot.val();
-      servoValEl.textContent = angle;
-      servoSlider.value = angle;
-    });
-
-    // When slider moves, update Firebase
-    servoSlider.addEventListener("input", () => {
-      const angle = Number(servoSlider.value);
-      servoValEl.textContent = angle;
-      db.ref("controls/servo").set(angle);
-    });
-  </script>
-
+  <!-- Firebase SDK (COMPAT VERSION) -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+  <script src="script.js"></script>
 </body>
 </html>
