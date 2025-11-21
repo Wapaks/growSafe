@@ -25,7 +25,7 @@ const weatherIcons = {
   "Snow": "❄️",
   "Rain Showers": "🌦️",
   "Thunderstorm": "⛈️",
-  "Loading...": "🌍"
+  "Loading...": "🌤️"
 };
 
 // Wait until DOM is loaded
@@ -35,13 +35,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const humEl = document.getElementById("hum");
   const conditionEl = document.getElementById("condition");
   const weatherIconEl = document.getElementById("weatherIcon");
-  const roofBtn = document.getElementById("roofBtn");
-  const toggleLightBtn = document.getElementById("toggleLight");
+  const roofToggle = document.getElementById("roofToggle");
+  const roofStatus = document.getElementById("roofStatus");
+  const lightToggle = document.getElementById("lightToggle");
   const lightStatusEl = document.getElementById("lightStatus");
   const servoSlider = document.getElementById("servoSlider");
   const servoValEl = document.getElementById("servoVal");
-  const tempGauge = document.getElementById("tempGauge");
-  const humidityGauge = document.getElementById("humidityGauge");
 
   let userSliding = false;
 
@@ -57,9 +56,9 @@ document.addEventListener("DOMContentLoaded", () => {
       tempEl.textContent = temp + "°C";
       humEl.textContent = hum + "%";
       
-      // Update gauge colors based on values
-      updateGauge(tempGauge, temp, 0, 50, "#38bdf8");
-      updateGauge(humidityGauge, hum, 0, 100, "#10b981");
+      // Update gauge animations
+      updateGauge('tempGauge', temp, 0, 50);
+      updateGauge('humidityGauge', hum, 0, 100);
     }
   });
 
@@ -69,9 +68,8 @@ document.addEventListener("DOMContentLoaded", () => {
     conditionEl.textContent = condition;
     
     // Update weather icon
-    const icon = weatherIcons[condition] || "🌍";
+    const icon = weatherIcons[condition] || "🌤️";
     weatherIconEl.textContent = icon;
-    weatherIconEl.style.fontSize = "80px";
   });
 
   // Listen to servo angle
@@ -81,6 +79,10 @@ document.addEventListener("DOMContentLoaded", () => {
       if (angle !== null) {
         servoValEl.textContent = angle;
         servoSlider.value = angle;
+        
+        // Update roof toggle based on angle
+        roofToggle.checked = angle > 90;
+        roofStatus.textContent = angle === 0 ? "Closed" : angle === 180 ? "Open" : `${angle}°`;
       }
     }
   });
@@ -88,27 +90,22 @@ document.addEventListener("DOMContentLoaded", () => {
   // Listen to light status
   db.ref("/iot/lights/status").on("value", snapshot => {
     const status = snapshot.val();
+    lightToggle.checked = status === 1;
     lightStatusEl.textContent = status ? "ON" : "OFF";
-    lightStatusEl.style.color = status ? "#10b981" : "#ef4444";
   });
 
   // --- Controls ---
   
-  // Roof button (toggle between 0 and 180)
-  roofBtn.addEventListener("click", () => {
-    db.ref("/iot/servo/angle").get().then(snapshot => {
-      const current = snapshot.val() ?? 90;
-      const newAngle = current === 0 ? 180 : 0;
-      db.ref("/iot/servo/angle").set(newAngle);
-    });
+  // Roof toggle (switch between 0 and 180)
+  roofToggle.addEventListener("change", () => {
+    const newAngle = roofToggle.checked ? 180 : 0;
+    db.ref("/iot/servo/angle").set(newAngle);
   });
 
-  // Light toggle button
-  toggleLightBtn.addEventListener("click", () => {
-    db.ref("/iot/lights/status").get().then(snapshot => {
-      const status = snapshot.val() ?? 0;
-      db.ref("/iot/lights/status").set(status ? 0 : 1);
-    });
+  // Light toggle
+  lightToggle.addEventListener("change", () => {
+    const status = lightToggle.checked ? 1 : 0;
+    db.ref("/iot/lights/status").set(status);
   });
 
   // --- Servo Slider ---
@@ -116,19 +113,30 @@ document.addEventListener("DOMContentLoaded", () => {
     userSliding = true;
     const value = Number(servoSlider.value);
     servoValEl.textContent = value;
+    roofStatus.textContent = `${value}°`;
     db.ref("/iot/servo/angle").set(value);
+    
+    // Update toggle state based on slider
+    roofToggle.checked = value > 90;
   });
 
   servoSlider.addEventListener("mouseup", () => userSliding = false);
   servoSlider.addEventListener("touchend", () => userSliding = false);
 
   // --- Helper Functions ---
-  function updateGauge(gaugeEl, value, min, max, color) {
-    const percentage = ((value - min) / (max - min)) * 100;
-    const degrees = (percentage / 100) * 360;
-    gaugeEl.style.background = `conic-gradient(${color} ${degrees}deg, #1e293b ${degrees}deg)`;
+  
+  // Update circular gauge
+  function updateGauge(gaugeId, value, min, max) {
+    const gauge = document.getElementById(gaugeId);
+    if (!gauge) return;
+    
+    const percentage = Math.min(Math.max(((value - min) / (max - min)) * 100, 0), 100);
+    const circumference = 502; // 2 * PI * 80 (radius)
+    const offset = circumference - (percentage / 100) * circumference;
+    
+    gauge.style.strokeDashoffset = offset;
   }
 
   // Initial connection status
-  console.log("Firebase initialized and listening for updates...");
+  console.log("🌱 GrowSafe initialized and listening for updates...");
 });

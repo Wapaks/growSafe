@@ -6,70 +6,132 @@
   <title>GrowSafe Dashboard</title>
 
   <!-- Google Font -->
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <!-- External CSS -->
   <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
-  <div class="flow-bg"></div>
+  <div class="background-gradient"></div>
 
-  <header>
-    <div class="header-center">
-      <h1>GrowSafe</h1>
-      <p>Quezon City</p>
-    </div>
-  </header>
+  <div class="container">
+    <!-- Header -->
+    <header>
+      <div class="header-content">
+        <h1>GrowSafe</h1>
+        <p class="location">📍 Quezon City</p>
+      </div>
+    </header>
 
-  <div class="weather-container">
-    <!-- Weather -->
-    <div class="weather-today">
-      <div class="weather-icon" id="weatherIcon"></div>
-      <div>
+    <!-- Weather Card -->
+    <div class="card weather-card">
+      <div class="card-header">
+        <h2>Current Weather</h2>
+      </div>
+      <div class="weather-content">
+        <div class="weather-icon" id="weatherIcon">🌤️</div>
         <div class="condition" id="condition">Loading...</div>
       </div>
     </div>
 
-    <!-- Gauges -->
-    <div class="gauges">
-      <div class="gauge" id="tempGauge">
-        <div class="gauge-inner">
-          <div class="gauge-value" id="temp">--°C</div>
-          <div class="gauge-label">Temperature</div>
+    <!-- Sensor Cards -->
+    <div class="sensor-grid">
+      <div class="card sensor-card">
+        <div class="gauge-container">
+          <svg class="gauge" viewBox="0 0 200 200">
+            <defs>
+              <linearGradient id="tempGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" style="stop-color:#ff9f0a;stop-opacity:1" />
+                <stop offset="100%" style="stop-color:#ff375f;stop-opacity:1" />
+              </linearGradient>
+            </defs>
+            <circle class="gauge-background" cx="100" cy="100" r="80" />
+            <circle class="gauge-progress temp-gauge" id="tempGauge" cx="100" cy="100" r="80" />
+          </svg>
+          <div class="gauge-content">
+            <div class="sensor-icon temp-icon">🌡️</div>
+            <div class="sensor-value" id="temp">--°C</div>
+          </div>
         </div>
+        <div class="sensor-label">Temperature</div>
       </div>
 
-      <div class="gauge" id="humidityGauge">
-        <div class="gauge-inner">
-          <div class="gauge-value" id="hum">--%</div>
-          <div class="gauge-label">Humidity</div>
+      <div class="card sensor-card">
+        <div class="gauge-container">
+          <svg class="gauge" viewBox="0 0 200 200">
+            <defs>
+              <linearGradient id="humidityGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" style="stop-color:#0a84ff;stop-opacity:1" />
+                <stop offset="100%" style="stop-color:#30d158;stop-opacity:1" />
+              </linearGradient>
+            </defs>
+            <circle class="gauge-background" cx="100" cy="100" r="80" />
+            <circle class="gauge-progress humidity-gauge" id="humidityGauge" cx="100" cy="100" r="80" />
+          </svg>
+          <div class="gauge-content">
+            <div class="sensor-icon humidity-icon">💧</div>
+            <div class="sensor-value" id="hum">--%</div>
+          </div>
         </div>
+        <div class="sensor-label">Humidity</div>
       </div>
     </div>
 
-    <!-- Controls -->
-    <div class="controls">
-      <!-- Roof Button -->
-      <button class="control-btn" id="roofBtn">Open/Close Roof</button>
+    <!-- Controls Card -->
+    <div class="card controls-card">
+      <div class="card-header">
+        <h2>Controls</h2>
+      </div>
+
+      <!-- Roof Control -->
+      <div class="control-item">
+        <div class="control-info">
+          <div class="control-icon">🏠</div>
+          <div class="control-text">
+            <div class="control-title">Roof</div>
+            <div class="control-subtitle" id="roofStatus">Adjustable</div>
+          </div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="roofToggle">
+          <span class="slider"></span>
+        </label>
+      </div>
 
       <!-- Servo Slider -->
-      <div class="slide-container" style="margin-top:20px;">
-        <label for="servoSlider" style="display:block; margin-bottom:5px; font-weight:600;">
-          Roof Angle: <span id="servoVal">90</span>°
-        </label>
-        <input type="range" id="servoSlider" min="0" max="180" value="90">
+      <div class="control-item slider-control">
+        <div class="control-info">
+          <div class="control-icon">📐</div>
+          <div class="control-text">
+            <div class="control-title">Roof Angle</div>
+            <div class="control-subtitle"><span id="servoVal">90</span>°</div>
+          </div>
+        </div>
+        <input type="range" id="servoSlider" min="0" max="180" value="90" class="range-slider">
       </div>
 
-      <!-- Light Button -->
-      <button class="control-btn" id="toggleLight" style="margin-top:20px;">Turn On/Off Light</button>
-      <p style="margin-top:5px;">Status: <span id="lightStatus">OFF</span></p>
+      <!-- Light Control -->
+      <div class="control-item">
+        <div class="control-info">
+          <div class="control-icon">💡</div>
+          <div class="control-text">
+            <div class="control-title">Grow Light</div>
+            <div class="control-subtitle" id="lightStatus">OFF</div>
+          </div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="lightToggle">
+          <span class="slider"></span>
+        </label>
+      </div>
     </div>
-  </div>
 
-  <footer>
-    © 2025 GrowSafe – Designed with care for our Plantita's out there
-  </footer>
+    <!-- Footer -->
+    <footer>
+      <p>© 2025 GrowSafe – Designed for Plant Lovers 🌱</p>
+    </footer>
+  </div>
 
   <!-- Firebase SDK (COMPAT VERSION) -->
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
