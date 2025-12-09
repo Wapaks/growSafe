@@ -30,6 +30,11 @@ const weatherIcons = {
 
 // Wait until DOM is loaded
 document.addEventListener("DOMContentLoaded", () => {
+  // --- Configuration ---
+  // IMPORTANT: These values must match your ESP32 code!
+  const ROOF_CLOSED = 0;     // Must match ROOF_CLOSED_ANGLE (0°)
+  const ROOF_OPEN = 180;     // Must match ROOF_OPEN_ANGLE (180°)
+  
   // --- HTML Elements ---
   const tempEl = document.getElementById("temp");
   const humEl = document.getElementById("hum");
@@ -40,7 +45,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const lightToggle = document.getElementById("lightToggle");
   const lightStatusEl = document.getElementById("lightStatus");
   const servoSlider = document.getElementById("servoSlider");
-  const servoValEl = document.getElementById("servoVal");
+  const roofPanelTop = document.getElementById("roofPanelTop");
+  const plant = document.getElementById("plant");
+
+  // Debug: Check if elements exist
+  console.log("Roof Panel Element:", roofPanelTop);
+  console.log("Plant Element:", plant);
 
   let userSliding = false;
 
@@ -75,14 +85,30 @@ document.addEventListener("DOMContentLoaded", () => {
   // Listen to servo angle
   db.ref("/iot/servo/angle").on("value", snapshot => {
     if (!userSliding) {
-      const angle = snapshot.val();
-      if (angle !== null) {
-        servoValEl.textContent = angle;
-        servoSlider.value = angle;
-        
-        // Update roof toggle based on angle
-        roofToggle.checked = angle > 90;
-        roofStatus.textContent = angle === 0 ? "Closed" : angle === 180 ? "Open" : `${angle}°`;
+      const angle = snapshot.val() ?? ROOF_CLOSED;
+      servoSlider.value = angle;
+      
+      // Update roof sliding animation (top view)
+      // Map 90-120° to 0-100% slide (roof slides to the right)
+      const slidePercentage = ((angle - ROOF_CLOSED) / (ROOF_OPEN - ROOF_CLOSED)) * 100;
+      roofPanelTop.style.transform = `translateX(${slidePercentage}%)`;
+      
+      // Show/hide plant based on opening
+      if (slidePercentage > 30) {
+        plant.classList.add('visible');
+      } else {
+        plant.classList.remove('visible');
+      }
+      
+      // Update toggle and status
+      roofToggle.checked = angle >= ROOF_OPEN;
+      if (angle <= ROOF_CLOSED) {
+        roofStatus.textContent = "Closed";
+      } else if (angle >= ROOF_OPEN) {
+        roofStatus.textContent = "Open";
+      } else {
+        const openPercent = Math.round(slidePercentage);
+        roofStatus.textContent = `${openPercent}% Open`;
       }
     }
   });
@@ -96,9 +122,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // --- Controls ---
   
-  // Roof toggle (switch between 0 and 180)
+  // Roof toggle (Quick open/close)
   roofToggle.addEventListener("change", () => {
-    const newAngle = roofToggle.checked ? 180 : 0;
+    const newAngle = roofToggle.checked ? ROOF_OPEN : ROOF_CLOSED;
     db.ref("/iot/servo/angle").set(newAngle);
   });
 
@@ -108,16 +134,36 @@ document.addEventListener("DOMContentLoaded", () => {
     db.ref("/iot/lights/status").set(status);
   });
 
-  // --- Servo Slider ---
+  // --- Servo Slider (Fine control) ---
   servoSlider.addEventListener("input", () => {
     userSliding = true;
     const value = Number(servoSlider.value);
-    servoValEl.textContent = value;
-    roofStatus.textContent = `${value}°`;
-    db.ref("/iot/servo/angle").set(value);
     
-    // Update toggle state based on slider
-    roofToggle.checked = value > 90;
+    // Update roof sliding animation
+    const slidePercentage = ((value - ROOF_CLOSED) / (ROOF_OPEN - ROOF_CLOSED)) * 100;
+    roofPanelTop.style.transform = `translateX(${slidePercentage}%)`;
+    
+    // Show/hide plant
+    if (slidePercentage > 30) {
+      plant.classList.add('visible');
+    } else {
+      plant.classList.remove('visible');
+    }
+    
+    // Update status
+    if (value <= ROOF_CLOSED) {
+      roofStatus.textContent = "Closed";
+      roofToggle.checked = false;
+    } else if (value >= ROOF_OPEN) {
+      roofStatus.textContent = "Open";
+      roofToggle.checked = true;
+    } else {
+      const openPercent = Math.round(slidePercentage);
+      roofStatus.textContent = `${openPercent}% Open`;
+      roofToggle.checked = false;
+    }
+    
+    db.ref("/iot/servo/angle").set(value);
   });
 
   servoSlider.addEventListener("mouseup", () => userSliding = false);
