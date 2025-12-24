@@ -9,7 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <!-- External CSS -->
-  <link rel="stylesheet" href="style.css?v=5">
+  <link rel="stylesheet" href="style.css?v=6">
 </head>
 
 <body>
@@ -76,6 +76,26 @@
         </div>
         <div class="sensor-label">Humidity</div>
       </div>
+
+      <div class="card sensor-card">
+        <div class="gauge-container">
+          <svg class="gauge" viewBox="0 0 200 200">
+            <defs>
+              <linearGradient id="soilGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" style="stop-color:#8b4513;stop-opacity:1" />
+                <stop offset="100%" style="stop-color:#30d158;stop-opacity:1" />
+              </linearGradient>
+            </defs>
+            <circle class="gauge-background" cx="100" cy="100" r="80" />
+            <circle class="gauge-progress soil-gauge" id="soilGauge" cx="100" cy="100" r="80" />
+          </svg>
+          <div class="gauge-content">
+            <div class="sensor-icon soil-icon">🌱</div>
+            <div class="sensor-value" id="soil">--%</div>
+          </div>
+        </div>
+        <div class="sensor-label">Soil Moisture</div>
+      </div>
     </div>
 
     <!-- Controls Card -->
@@ -112,12 +132,9 @@
         <!-- Roof Animation (Top View) -->
         <div class="roof-animation">
           <div class="greenhouse-top-view">
-            <!-- Base/Floor -->
             <div class="greenhouse-floor">
-              <!-- Plant (appears when open) -->
               <div class="plant" id="plant">🌿</div>
             </div>
-            <!-- Roof Panel (Slides open) -->
             <div class="roof-panel-top" id="roofPanelTop"></div>
           </div>
         </div>
@@ -125,7 +142,7 @@
         <input type="range" id="servoSlider" min="0" max="180" value="0" class="range-slider">
       </div>
 
-      <!-- Light Control -->
+      <!-- Grow Light Control -->
       <div class="control-item">
         <div class="control-info">
           <div class="control-icon">💡</div>
@@ -136,6 +153,36 @@
         </div>
         <label class="switch">
           <input type="checkbox" id="lightToggle">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <!-- Water Pump Control -->
+      <div class="control-item">
+        <div class="control-info">
+          <div class="control-icon">💦</div>
+          <div class="control-text">
+            <div class="control-title">Water Pump</div>
+            <div class="control-subtitle" id="pumpStatus">OFF</div>
+          </div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="pumpToggle">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <!-- Fan Control -->
+      <div class="control-item">
+        <div class="control-info">
+          <div class="control-icon">🌀</div>
+          <div class="control-text">
+            <div class="control-title">Ventilation Fan</div>
+            <div class="control-subtitle" id="fanStatus">OFF</div>
+          </div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="fanToggle">
           <span class="slider"></span>
         </label>
       </div>
@@ -150,6 +197,6 @@
   <!-- Firebase SDK (COMPAT VERSION) -->
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
-  <script src="script.js?v=5"></script>
+  <script src="script.js?v=6"></script>
 </body>
 </html>

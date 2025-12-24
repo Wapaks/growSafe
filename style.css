@@ -15,6 +15,8 @@
   --accent-blue: #0a84ff;
   --accent-green: #30d158;
   --accent-orange: #ff9f0a;
+  --accent-red: #ff375f;
+  --accent-purple: #bf5af2;
   --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
   --border-radius: 16px;
 }
@@ -176,6 +178,10 @@ header h1 {
 
 .humidity-gauge {
   stroke: url(#humidityGradient);
+}
+
+.soil-gauge {
+  stroke: url(#soilGradient);
 }
 
 .gauge-content {
@@ -539,20 +545,12 @@ footer p {
     padding: 40px;
   }
   
-  /* Desktop layout - side by side cards */
-  .dashboard-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-  }
-  
   .weather-card {
     grid-column: 1 / -1;
   }
   
   .sensor-grid {
-    grid-column: 1 / -1;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     gap: 16px;
   }
   

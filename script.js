@@ -31,26 +31,26 @@ const weatherIcons = {
 // Wait until DOM is loaded
 document.addEventListener("DOMContentLoaded", () => {
   // --- Configuration ---
-  // IMPORTANT: These values must match your ESP32 code!
-  const ROOF_CLOSED = 0;     // Must match ROOF_CLOSED_ANGLE (0°)
-  const ROOF_OPEN = 180;     // Must match ROOF_OPEN_ANGLE (180°)
+  const ROOF_CLOSED = 0;
+  const ROOF_OPEN = 180;
   
   // --- HTML Elements ---
   const tempEl = document.getElementById("temp");
   const humEl = document.getElementById("hum");
+  const soilEl = document.getElementById("soil");
   const conditionEl = document.getElementById("condition");
   const weatherIconEl = document.getElementById("weatherIcon");
   const roofToggle = document.getElementById("roofToggle");
   const roofStatus = document.getElementById("roofStatus");
   const lightToggle = document.getElementById("lightToggle");
   const lightStatusEl = document.getElementById("lightStatus");
+  const pumpToggle = document.getElementById("pumpToggle");
+  const pumpStatusEl = document.getElementById("pumpStatus");
+  const fanToggle = document.getElementById("fanToggle");
+  const fanStatusEl = document.getElementById("fanStatus");
   const servoSlider = document.getElementById("servoSlider");
   const roofPanelTop = document.getElementById("roofPanelTop");
   const plant = document.getElementById("plant");
-
-  // Debug: Check if elements exist
-  console.log("Roof Panel Element:", roofPanelTop);
-  console.log("Plant Element:", plant);
 
   let userSliding = false;
 
@@ -66,10 +66,16 @@ document.addEventListener("DOMContentLoaded", () => {
       tempEl.textContent = temp + "°C";
       humEl.textContent = hum + "%";
       
-      // Update gauge animations
       updateGauge('tempGauge', temp, 0, 50);
       updateGauge('humidityGauge', hum, 0, 100);
     }
+  });
+
+  // Listen to soil moisture
+  db.ref("/iot/soil/moisture").on("value", snapshot => {
+    const moisture = snapshot.val() ?? 0;
+    soilEl.textContent = moisture + "%";
+    updateGauge('soilGauge', moisture, 0, 100);
   });
 
   // Listen to weather condition
@@ -77,7 +83,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const condition = snapshot.val() || "Loading...";
     conditionEl.textContent = condition;
     
-    // Update weather icon
     const icon = weatherIcons[condition] || "🌤️";
     weatherIconEl.textContent = icon;
   });
@@ -88,19 +93,15 @@ document.addEventListener("DOMContentLoaded", () => {
       const angle = snapshot.val() ?? ROOF_CLOSED;
       servoSlider.value = angle;
       
-      // Update roof sliding animation (top view)
-      // Map 90-120° to 0-100% slide (roof slides to the right)
       const slidePercentage = ((angle - ROOF_CLOSED) / (ROOF_OPEN - ROOF_CLOSED)) * 100;
       roofPanelTop.style.transform = `translateX(${slidePercentage}%)`;
       
-      // Show/hide plant based on opening
       if (slidePercentage > 30) {
         plant.classList.add('visible');
       } else {
         plant.classList.remove('visible');
       }
       
-      // Update toggle and status
       roofToggle.checked = angle >= ROOF_OPEN;
       if (angle <= ROOF_CLOSED) {
         roofStatus.textContent = "Closed";
@@ -113,11 +114,25 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Listen to light status
+  // Listen to grow light status
   db.ref("/iot/lights/status").on("value", snapshot => {
     const status = snapshot.val();
     lightToggle.checked = status === 1;
     lightStatusEl.textContent = status ? "ON" : "OFF";
+  });
+
+  // Listen to pump status
+  db.ref("/iot/pump/status").on("value", snapshot => {
+    const status = snapshot.val();
+    pumpToggle.checked = status === 1;
+    pumpStatusEl.textContent = status ? "ON" : "OFF";
+  });
+
+  // Listen to fan status
+  db.ref("/iot/fan/status").on("value", snapshot => {
+    const status = snapshot.val();
+    fanToggle.checked = status === 1;
+    fanStatusEl.textContent = status ? "ON" : "OFF";
   });
 
   // --- Controls ---
@@ -128,10 +143,22 @@ document.addEventListener("DOMContentLoaded", () => {
     db.ref("/iot/servo/angle").set(newAngle);
   });
 
-  // Light toggle
+  // Grow Light toggle
   lightToggle.addEventListener("change", () => {
     const status = lightToggle.checked ? 1 : 0;
     db.ref("/iot/lights/status").set(status);
+  });
+
+  // Pump toggle
+  pumpToggle.addEventListener("change", () => {
+    const status = pumpToggle.checked ? 1 : 0;
+    db.ref("/iot/pump/status").set(status);
+  });
+
+  // Fan toggle
+  fanToggle.addEventListener("change", () => {
+    const status = fanToggle.checked ? 1 : 0;
+    db.ref("/iot/fan/status").set(status);
   });
 
   // --- Servo Slider (Fine control) ---
@@ -139,18 +166,15 @@ document.addEventListener("DOMContentLoaded", () => {
     userSliding = true;
     const value = Number(servoSlider.value);
     
-    // Update roof sliding animation
     const slidePercentage = ((value - ROOF_CLOSED) / (ROOF_OPEN - ROOF_CLOSED)) * 100;
     roofPanelTop.style.transform = `translateX(${slidePercentage}%)`;
     
-    // Show/hide plant
     if (slidePercentage > 30) {
       plant.classList.add('visible');
     } else {
       plant.classList.remove('visible');
     }
     
-    // Update status
     if (value <= ROOF_CLOSED) {
       roofStatus.textContent = "Closed";
       roofToggle.checked = false;
@@ -177,12 +201,11 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!gauge) return;
     
     const percentage = Math.min(Math.max(((value - min) / (max - min)) * 100, 0), 100);
-    const circumference = 502; // 2 * PI * 80 (radius)
+    const circumference = 502;
     const offset = circumference - (percentage / 100) * circumference;
     
     gauge.style.strokeDashoffset = offset;
   }
 
-  // Initial connection status
   console.log("🌱 GrowSafe initialized and listening for updates...");
 });
