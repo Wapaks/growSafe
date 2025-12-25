@@ -28,26 +28,72 @@ const weatherIcons = {
   "Loading...": "🌤️"
 };
 
+// Helper Functions
+function getTemperatureStatus(temp) {
+  if (temp < 15) return { text: "Too Cold - Risk of Frost", class: "danger" };
+  if (temp < 20) return { text: "Cool - Acceptable", class: "warning" };
+  if (temp <= 28) return { text: "Optimal - Perfect Growth", class: "optimal" };
+  if (temp <= 32) return { text: "Warm - Monitor Closely", class: "warning" };
+  return { text: "Too Hot - Needs Cooling", class: "danger" };
+}
+
+function getHumidityStatus(hum) {
+  if (hum < 30) return { text: "Very Low - Add Moisture", class: "danger" };
+  if (hum < 40) return { text: "Low - Increase Humidity", class: "warning" };
+  if (hum <= 70) return { text: "Ideal - Perfect Balance", class: "optimal" };
+  if (hum <= 80) return { text: "High - Reduce Humidity", class: "warning" };
+  return { text: "Too High - Risk of Mold", class: "danger" };
+}
+
+function getSoilStatus(moisture) {
+  if (moisture < 20) return { text: "Very Dry - Needs Water Now", class: "danger" };
+  if (moisture < 30) return { text: "Dry - Irrigation Needed", class: "warning" };
+  if (moisture <= 70) return { text: "Perfect - Well Hydrated", class: "optimal" };
+  if (moisture <= 80) return { text: "Moist - Good Condition", class: "optimal" };
+  return { text: "Saturated - Reduce Watering", class: "danger" };
+}
+
 // Wait until DOM is loaded
 document.addEventListener("DOMContentLoaded", () => {
-  // --- Configuration ---
   const ROOF_CLOSED = 0;
   const ROOF_OPEN = 180;
   
   // --- HTML Elements ---
   const tempEl = document.getElementById("temp");
+  const tempStatus = document.getElementById("tempStatus");
+  const tempProgress = document.getElementById("tempProgress");
+  
   const humEl = document.getElementById("hum");
+  const humStatus = document.getElementById("humStatus");
+  const humProgress = document.getElementById("humProgress");
+  
   const soilEl = document.getElementById("soil");
+  const soilStatus = document.getElementById("soilStatus");
+  const soilProgress = document.getElementById("soilProgress");
+  
   const conditionEl = document.getElementById("condition");
   const weatherIconEl = document.getElementById("weatherIcon");
+  
+  const autoModeToggle = document.getElementById("autoModeToggle");
+  const modeIcon = document.getElementById("modeIcon");
+  const modeTitle = document.getElementById("modeTitle");
+  const modeDescription = document.getElementById("modeDescription");
+  const controlsBadge = document.getElementById("controlsBadge");
+  const manualControls = document.getElementById("manualControls");
+  
   const roofToggle = document.getElementById("roofToggle");
   const roofStatus = document.getElementById("roofStatus");
+  const roofPercentage = document.getElementById("roofPercentage");
+  
   const lightToggle = document.getElementById("lightToggle");
   const lightStatusEl = document.getElementById("lightStatus");
+  
   const pumpToggle = document.getElementById("pumpToggle");
   const pumpStatusEl = document.getElementById("pumpStatus");
+  
   const fanToggle = document.getElementById("fanToggle");
   const fanStatusEl = document.getElementById("fanStatus");
+  
   const servoSlider = document.getElementById("servoSlider");
   const roofPanelTop = document.getElementById("roofPanelTop");
   const plant = document.getElementById("plant");
@@ -56,18 +102,53 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // --- Firebase Listeners ---
   
+  // Listen to automation mode
+  db.ref("/iot/automation/mode").on("value", snapshot => {
+    const mode = snapshot.val() ?? 1;
+    autoModeToggle.checked = mode === 1;
+    
+    if (mode === 1) {
+      modeIcon.textContent = "🤖";
+      modeTitle.textContent = "Automation Mode";
+      modeDescription.textContent = "System controls all functions automatically";
+      controlsBadge.textContent = "Locked in Auto Mode";
+      controlsBadge.style.background = "rgba(255, 159, 10, 0.2)";
+      controlsBadge.style.color = "var(--accent-orange)";
+      manualControls.classList.add('disabled');
+    } else {
+      modeIcon.textContent = "👤";
+      modeTitle.textContent = "Manual Mode";
+      modeDescription.textContent = "You have full control over all systems";
+      controlsBadge.textContent = "Manual Control Active";
+      controlsBadge.style.background = "rgba(10, 132, 255, 0.2)";
+      controlsBadge.style.color = "var(--accent-blue)";
+      manualControls.classList.remove('disabled');
+    }
+  });
+  
   // Listen to DHT sensor data
   db.ref("/iot/dht").on("value", snapshot => {
     const data = snapshot.val();
     if (data) {
-      const temp = data.temperature.toFixed(1);
-      const hum = data.humidity.toFixed(1);
+      const temp = parseFloat(data.temperature.toFixed(1));
+      const hum = parseFloat(data.humidity.toFixed(1));
       
+      // Update temperature
       tempEl.textContent = temp + "°C";
-      humEl.textContent = hum + "%";
+      const tempInfo = getTemperatureStatus(temp);
+      tempStatus.textContent = tempInfo.text;
+      tempStatus.className = "sensor-status " + tempInfo.class;
       
-      updateGauge('tempGauge', temp, 0, 50);
-      updateGauge('humidityGauge', hum, 0, 100);
+      const tempPercent = Math.min((temp / 50) * 100, 100);
+      tempProgress.style.width = tempPercent + "%";
+      
+      // Update humidity
+      humEl.textContent = hum + "%";
+      const humInfo = getHumidityStatus(hum);
+      humStatus.textContent = humInfo.text;
+      humStatus.className = "sensor-status " + humInfo.class;
+      
+      humProgress.style.width = hum + "%";
     }
   });
 
@@ -75,7 +156,12 @@ document.addEventListener("DOMContentLoaded", () => {
   db.ref("/iot/soil/moisture").on("value", snapshot => {
     const moisture = snapshot.val() ?? 0;
     soilEl.textContent = moisture + "%";
-    updateGauge('soilGauge', moisture, 0, 100);
+    
+    const soilInfo = getSoilStatus(moisture);
+    soilStatus.textContent = soilInfo.text;
+    soilStatus.className = "sensor-status " + soilInfo.class;
+    
+    soilProgress.style.width = moisture + "%";
   });
 
   // Listen to weather condition
@@ -95,6 +181,7 @@ document.addEventListener("DOMContentLoaded", () => {
       
       const slidePercentage = ((angle - ROOF_CLOSED) / (ROOF_OPEN - ROOF_CLOSED)) * 100;
       roofPanelTop.style.transform = `translateX(${slidePercentage}%)`;
+      roofPercentage.textContent = Math.round(slidePercentage) + "%";
       
       if (slidePercentage > 30) {
         plant.classList.add('visible');
@@ -108,8 +195,7 @@ document.addEventListener("DOMContentLoaded", () => {
       } else if (angle >= ROOF_OPEN) {
         roofStatus.textContent = "Open";
       } else {
-        const openPercent = Math.round(slidePercentage);
-        roofStatus.textContent = `${openPercent}% Open`;
+        roofStatus.textContent = Math.round(slidePercentage) + "% Open";
       }
     }
   });
@@ -137,7 +223,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // --- Controls ---
   
-  // Roof toggle (Quick open/close)
+  // Auto Mode toggle
+  autoModeToggle.addEventListener("change", () => {
+    const mode = autoModeToggle.checked ? 1 : 0;
+    db.ref("/iot/automation/mode").set(mode);
+  });
+  
+  // Roof toggle
   roofToggle.addEventListener("change", () => {
     const newAngle = roofToggle.checked ? ROOF_OPEN : ROOF_CLOSED;
     db.ref("/iot/servo/angle").set(newAngle);
@@ -161,13 +253,14 @@ document.addEventListener("DOMContentLoaded", () => {
     db.ref("/iot/fan/status").set(status);
   });
 
-  // --- Servo Slider (Fine control) ---
+  // Servo Slider
   servoSlider.addEventListener("input", () => {
     userSliding = true;
     const value = Number(servoSlider.value);
     
     const slidePercentage = ((value - ROOF_CLOSED) / (ROOF_OPEN - ROOF_CLOSED)) * 100;
     roofPanelTop.style.transform = `translateX(${slidePercentage}%)`;
+    roofPercentage.textContent = Math.round(slidePercentage) + "%";
     
     if (slidePercentage > 30) {
       plant.classList.add('visible');
@@ -182,8 +275,7 @@ document.addEventListener("DOMContentLoaded", () => {
       roofStatus.textContent = "Open";
       roofToggle.checked = true;
     } else {
-      const openPercent = Math.round(slidePercentage);
-      roofStatus.textContent = `${openPercent}% Open`;
+      roofStatus.textContent = Math.round(slidePercentage) + "% Open";
       roofToggle.checked = false;
     }
     
@@ -193,19 +285,5 @@ document.addEventListener("DOMContentLoaded", () => {
   servoSlider.addEventListener("mouseup", () => userSliding = false);
   servoSlider.addEventListener("touchend", () => userSliding = false);
 
-  // --- Helper Functions ---
-  
-  // Update circular gauge
-  function updateGauge(gaugeId, value, min, max) {
-    const gauge = document.getElementById(gaugeId);
-    if (!gauge) return;
-    
-    const percentage = Math.min(Math.max(((value - min) / (max - min)) * 100, 0), 100);
-    const circumference = 502;
-    const offset = circumference - (percentage / 100) * circumference;
-    
-    gauge.style.strokeDashoffset = offset;
-  }
-
-  console.log("🌱 GrowSafe initialized and listening for updates...");
+  console.log("🌱 GrowSafe Dashboard Initialized");
 });
