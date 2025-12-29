@@ -23,7 +23,7 @@ const weatherIcons = {
   "Rain": "🌧️",
   "Freezing Rain": "🌧️",
   "Snow": "❄️",
-  "Rain Showers": "🌦️",
+  "Showers": "🌦️",
   "Thunderstorm": "⛈️",
   "Loading...": "🌤️"
 };
@@ -99,15 +99,17 @@ document.addEventListener("DOMContentLoaded", () => {
   const plant = document.getElementById("plant");
 
   let userSliding = false;
+  let isAutoMode = true;
 
   // --- Firebase Listeners ---
   
-  // Listen to automation mode
-  db.ref("/iot/automation/mode").on("value", snapshot => {
-    const mode = snapshot.val() ?? 1;
-    autoModeToggle.checked = mode === 1;
+  // Listen to automation mode from /iot/controls/autoMode
+  db.ref("/iot/controls/autoMode").on("value", snapshot => {
+    const autoMode = snapshot.val() ?? true;
+    isAutoMode = autoMode;
+    autoModeToggle.checked = autoMode;
     
-    if (mode === 1) {
+    if (autoMode) {
       modeIcon.textContent = "🤖";
       modeTitle.textContent = "Automation Mode";
       modeDescription.textContent = "System controls all functions automatically";
@@ -126,34 +128,34 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
   
-  // Listen to DHT sensor data
-  db.ref("/iot/dht").on("value", snapshot => {
-    const data = snapshot.val();
-    if (data) {
-      const temp = parseFloat(data.temperature.toFixed(1));
-      const hum = parseFloat(data.humidity.toFixed(1));
-      
-      // Update temperature
-      tempEl.textContent = temp + "°C";
-      const tempInfo = getTemperatureStatus(temp);
-      tempStatus.textContent = tempInfo.text;
-      tempStatus.className = "sensor-status " + tempInfo.class;
-      
-      const tempPercent = Math.min((temp / 50) * 100, 100);
-      tempProgress.style.width = tempPercent + "%";
-      
-      // Update humidity
-      humEl.textContent = hum + "%";
-      const humInfo = getHumidityStatus(hum);
-      humStatus.textContent = humInfo.text;
-      humStatus.className = "sensor-status " + humInfo.class;
-      
-      humProgress.style.width = hum + "%";
-    }
+  // Listen to sensor data - Temperature & Humidity from /iot/sensors/
+  db.ref("/iot/sensors/temperature").on("value", snapshot => {
+    const temp = snapshot.val() ?? 0;
+    const tempFixed = parseFloat(temp.toFixed(1));
+    
+    tempEl.textContent = tempFixed + "°C";
+    const tempInfo = getTemperatureStatus(tempFixed);
+    tempStatus.textContent = tempInfo.text;
+    tempStatus.className = "sensor-status " + tempInfo.class;
+    
+    const tempPercent = Math.min((tempFixed / 50) * 100, 100);
+    tempProgress.style.width = tempPercent + "%";
   });
 
-  // Listen to soil moisture
-  db.ref("/iot/soil/moisture").on("value", snapshot => {
+  db.ref("/iot/sensors/humidity").on("value", snapshot => {
+    const hum = snapshot.val() ?? 0;
+    const humFixed = parseFloat(hum.toFixed(1));
+    
+    humEl.textContent = humFixed + "%";
+    const humInfo = getHumidityStatus(humFixed);
+    humStatus.textContent = humInfo.text;
+    humStatus.className = "sensor-status " + humInfo.class;
+    
+    humProgress.style.width = humFixed + "%";
+  });
+
+  // Listen to soil moisture from /iot/sensors/soilMoisture
+  db.ref("/iot/sensors/soilMoisture").on("value", snapshot => {
     const moisture = snapshot.val() ?? 0;
     soilEl.textContent = moisture + "%";
     
@@ -164,7 +166,7 @@ document.addEventListener("DOMContentLoaded", () => {
     soilProgress.style.width = moisture + "%";
   });
 
-  // Listen to weather condition
+  // Listen to weather condition from /iot/weather/condition
   db.ref("/iot/weather/condition").on("value", snapshot => {
     const condition = snapshot.val() || "Loading...";
     conditionEl.textContent = condition;
@@ -173,13 +175,140 @@ document.addEventListener("DOMContentLoaded", () => {
     weatherIconEl.textContent = icon;
   });
 
-  // Listen to servo angle
-  db.ref("/iot/servo/angle").on("value", snapshot => {
-    if (!userSliding) {
-      const angle = snapshot.val() ?? ROOF_CLOSED;
-      servoSlider.value = angle;
+  // Listen to roof status from /iot/controls/roofOpen
+  db.ref("/iot/controls/roofOpen").on("value", snapshot => {
+    const roofOpen = snapshot.val() ?? false;
+    
+    roofToggle.checked = roofOpen;
+    
+    if (roofOpen) {
+      roofStatus.textContent = "Open";
+      if (!userSliding) {
+        servoSlider.value = ROOF_OPEN;
+        roofPanelTop.style.transform = `translateX(100%)`;
+        roofPercentage.textContent = "100%";
+        plant.classList.add('visible');
+      }
       
-      const slidePercentage = ((angle - ROOF_CLOSED) / (ROOF_OPEN - ROOF_CLOSED)) * 100;
+      // ROOF OPEN: Disable lights toggle and show as automatic
+      lightToggle.disabled = true;
+      lightToggle.style.opacity = '0.5';
+      lightToggle.style.cursor = 'not-allowed';
+      lightStatusEl.textContent = "AUTO OFF (Roof Open)";
+      lightStatusEl.style.color = "var(--text-secondary)";
+      
+    } else {
+      roofStatus.textContent = "Closed";
+      if (!userSliding) {
+        servoSlider.value = ROOF_CLOSED;
+        roofPanelTop.style.transform = `translateX(0%)`;
+        roofPercentage.textContent = "0%";
+        plant.classList.remove('visible');
+      }
+      
+      // ROOF CLOSED: Enable lights toggle for manual control
+      lightToggle.disabled = false;
+      lightToggle.style.opacity = '1';
+      lightToggle.style.cursor = 'pointer';
+      lightStatusEl.style.color = "";
+    }
+  });
+
+  // Listen to grow light status from /iot/controls/growlightsOn
+  db.ref("/iot/controls/growlightsOn").on("value", snapshot => {
+    const status = snapshot.val() ?? false;
+    lightToggle.checked = status;
+    
+    // Only update status text if toggle is enabled (roof closed)
+    if (!lightToggle.disabled) {
+      lightStatusEl.textContent = status ? "ON" : "OFF";
+      lightStatusEl.style.color = "";
+    }
+    // If disabled (roof open), status is already set by roof listener
+  });
+
+  // Listen to fan status from /iot/controls/fanOn
+  db.ref("/iot/controls/fanOn").on("value", snapshot => {
+    const status = snapshot.val() ?? false;
+    fanToggle.checked = status;
+    fanStatusEl.textContent = status ? "ON" : "OFF";
+  });
+
+  // Pump doesn't have persistent status in Firebase (it's a momentary action)
+  // We'll just show OFF by default and briefly show ON when activated
+  pumpStatusEl.textContent = "OFF";
+  pumpToggle.checked = false;
+
+  // --- Controls (Only work in MANUAL mode) ---
+  
+  // Auto Mode toggle (always works)
+  autoModeToggle.addEventListener("change", () => {
+    const mode = autoModeToggle.checked;
+    db.ref("/iot/controls/autoMode").set(mode);
+  });
+  
+  // Roof toggle - sends command to /iot/commands/roof (only in manual mode)
+  roofToggle.addEventListener("change", () => {
+    if (!isAutoMode) {
+      const newState = roofToggle.checked;
+      db.ref("/iot/commands/roof").set(newState);
+    } else {
+      // Revert toggle if in auto mode
+      db.ref("/iot/controls/roofOpen").once("value", snapshot => {
+        roofToggle.checked = snapshot.val() ?? false;
+      });
+    }
+  });
+
+  // Grow Light toggle - sends command (only in manual mode)
+  lightToggle.addEventListener("change", () => {
+    if (!isAutoMode) {
+      const status = lightToggle.checked;
+      db.ref("/iot/commands/lights").set(status);
+    } else {
+      // Revert toggle if in auto mode
+      db.ref("/iot/controls/growlightsOn").once("value", snapshot => {
+        lightToggle.checked = snapshot.val() ?? false;
+      });
+    }
+  });
+
+  // Fan toggle - sends command (only in manual mode)
+  fanToggle.addEventListener("change", () => {
+    if (!isAutoMode) {
+      const status = fanToggle.checked;
+      db.ref("/iot/commands/fan").set(status);
+    } else {
+      // Revert toggle if in auto mode
+      db.ref("/iot/controls/fanOn").once("value", snapshot => {
+        fanToggle.checked = snapshot.val() ?? false;
+      });
+    }
+  });
+
+  // Pump toggle - momentary activation (works in both modes)
+  pumpToggle.addEventListener("change", () => {
+    if (pumpToggle.checked) {
+      // Send pump command
+      db.ref("/iot/commands/pump").set(true);
+      pumpStatusEl.textContent = "RUNNING";
+      
+      // Auto turn off after 5 seconds
+      setTimeout(() => {
+        pumpToggle.checked = false;
+        pumpStatusEl.textContent = "OFF";
+        db.ref("/iot/commands/pump").set(false);
+      }, 5000);
+    }
+  });
+
+  // Servo Slider - provides fine control (only in manual mode)
+  servoSlider.addEventListener("input", () => {
+    if (!isAutoMode) {
+      userSliding = true;
+      const value = Number(servoSlider.value);
+      
+      const slidePercentage = ((value - ROOF_CLOSED) / (ROOF_OPEN - ROOF_CLOSED)) * 100;
       roofPanelTop.style.transform = `translateX(${slidePercentage}%)`;
       roofPercentage.textContent = Math.round(slidePercentage) + "%";
       
@@ -189,101 +318,53 @@ document.addEventListener("DOMContentLoaded", () => {
         plant.classList.remove('visible');
       }
       
-      roofToggle.checked = angle >= ROOF_OPEN;
-      if (angle <= ROOF_CLOSED) {
+      if (value <= ROOF_CLOSED) {
         roofStatus.textContent = "Closed";
-      } else if (angle >= ROOF_OPEN) {
+        roofToggle.checked = false;
+      } else if (value >= ROOF_OPEN) {
         roofStatus.textContent = "Open";
+        roofToggle.checked = true;
       } else {
         roofStatus.textContent = Math.round(slidePercentage) + "% Open";
       }
-    }
-  });
-
-  // Listen to grow light status
-  db.ref("/iot/lights/status").on("value", snapshot => {
-    const status = snapshot.val();
-    lightToggle.checked = status === 1;
-    lightStatusEl.textContent = status ? "ON" : "OFF";
-  });
-
-  // Listen to pump status
-  db.ref("/iot/pump/status").on("value", snapshot => {
-    const status = snapshot.val();
-    pumpToggle.checked = status === 1;
-    pumpStatusEl.textContent = status ? "ON" : "OFF";
-  });
-
-  // Listen to fan status
-  db.ref("/iot/fan/status").on("value", snapshot => {
-    const status = snapshot.val();
-    fanToggle.checked = status === 1;
-    fanStatusEl.textContent = status ? "ON" : "OFF";
-  });
-
-  // --- Controls ---
-  
-  // Auto Mode toggle
-  autoModeToggle.addEventListener("change", () => {
-    const mode = autoModeToggle.checked ? 1 : 0;
-    db.ref("/iot/automation/mode").set(mode);
-  });
-  
-  // Roof toggle
-  roofToggle.addEventListener("change", () => {
-    const newAngle = roofToggle.checked ? ROOF_OPEN : ROOF_CLOSED;
-    db.ref("/iot/servo/angle").set(newAngle);
-  });
-
-  // Grow Light toggle
-  lightToggle.addEventListener("change", () => {
-    const status = lightToggle.checked ? 1 : 0;
-    db.ref("/iot/lights/status").set(status);
-  });
-
-  // Pump toggle
-  pumpToggle.addEventListener("change", () => {
-    const status = pumpToggle.checked ? 1 : 0;
-    db.ref("/iot/pump/status").set(status);
-  });
-
-  // Fan toggle
-  fanToggle.addEventListener("change", () => {
-    const status = fanToggle.checked ? 1 : 0;
-    db.ref("/iot/fan/status").set(status);
-  });
-
-  // Servo Slider
-  servoSlider.addEventListener("input", () => {
-    userSliding = true;
-    const value = Number(servoSlider.value);
-    
-    const slidePercentage = ((value - ROOF_CLOSED) / (ROOF_OPEN - ROOF_CLOSED)) * 100;
-    roofPanelTop.style.transform = `translateX(${slidePercentage}%)`;
-    roofPercentage.textContent = Math.round(slidePercentage) + "%";
-    
-    if (slidePercentage > 30) {
-      plant.classList.add('visible');
+      
+      // Send command to ESP32
+      const roofOpen = value >= ROOF_OPEN;
+      db.ref("/iot/commands/roof").set(roofOpen);
+      
+      // Note: ESP32 will automatically handle lights based on roof
     } else {
-      plant.classList.remove('visible');
+      // Revert slider if in auto mode
+      db.ref("/iot/controls/roofOpen").once("value", snapshot => {
+        const roofOpen = snapshot.val() ?? false;
+        servoSlider.value = roofOpen ? ROOF_OPEN : ROOF_CLOSED;
+      });
     }
-    
-    if (value <= ROOF_CLOSED) {
-      roofStatus.textContent = "Closed";
-      roofToggle.checked = false;
-    } else if (value >= ROOF_OPEN) {
-      roofStatus.textContent = "Open";
-      roofToggle.checked = true;
-    } else {
-      roofStatus.textContent = Math.round(slidePercentage) + "% Open";
-      roofToggle.checked = false;
-    }
-    
-    db.ref("/iot/servo/angle").set(value);
   });
 
   servoSlider.addEventListener("mouseup", () => userSliding = false);
   servoSlider.addEventListener("touchend", () => userSliding = false);
 
+  // Prevent slider interaction in auto mode
+  servoSlider.addEventListener("mousedown", (e) => {
+    if (isAutoMode) {
+      e.preventDefault();
+    }
+  });
+
   console.log("🌱 GrowSafe Dashboard Initialized");
+  console.log("📡 Listening to Firebase paths:");
+  console.log("  - /iot/controls/autoMode");
+  console.log("  - /iot/sensors/temperature");
+  console.log("  - /iot/sensors/humidity");
+  console.log("  - /iot/sensors/soilMoisture");
+  console.log("  - /iot/weather/condition");
+  console.log("  - /iot/controls/roofOpen");
+  console.log("  - /iot/controls/growlightsOn");
+  console.log("  - /iot/controls/fanOn");
+  console.log("📤 Sending commands to:");
+  console.log("  - /iot/commands/roof");
+  console.log("  - /iot/commands/lights");
+  console.log("  - /iot/commands/fan");
+  console.log("  - /iot/commands/pump");
 });
